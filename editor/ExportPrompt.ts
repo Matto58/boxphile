@@ -74,6 +74,11 @@ export class ExportPrompt implements Prompt {
         option({ value: 3 }, "Use 24-bit audio."),
         option({ value: 4 }, "Use 32-bit audio."),
     );
+    private readonly _mp3BitrateSelect: HTMLInputElement = input({ style: "width: 6em;", type: "number", min: "24", max: "320", step: "8" });
+    private readonly _mp3BitrateSelectDiv: HTMLDivElement = div({ id: "mp3BitrateSelector", style: "display: flex; flex-direction: row; align-items: center; justify-content: space-between;" },
+        "MP3 bitrate:",
+        this._mp3BitrateSelect,
+    );
     private readonly _cancelButton: HTMLButtonElement = button({ class: "cancelButton" });
     private readonly _exportButton: HTMLButtonElement = button({ class: "exportButton", style: "width:45%;" }, "Export");
     private readonly _outputProgressBar: HTMLDivElement = div({ style: `width: 0%; background: ${ColorConfig.loopAccent}; height: 100%; position: absolute; z-index: 2;` });
@@ -120,6 +125,7 @@ export class ExportPrompt implements Prompt {
         div({ class: "selectContainer", style: "width: 100%;" }, this._formatSelect),
         div({ class: "selectContainer", style: "width: 100%;" }, this._sampleRateSelect),
         div({ class: "selectContainer", style: "width: 100%;" }, this._sampleSizeSelect),
+        this._mp3BitrateSelectDiv,
         div({ style: "text-align: left;" }, "Exporting can be slow. Reloading the page or clicking the X will cancel it. Please be patient."),
         this._outputProgressContainer,
         div({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" },
@@ -153,6 +159,7 @@ export class ExportPrompt implements Prompt {
 
         this._sampleRateSelect.value = "48000";
         this._sampleSizeSelect.value = "2";
+        this._mp3BitrateSelect.value = "192";
         this._fileName.select();
         setTimeout(() => this._fileName.focus());
 
@@ -163,6 +170,9 @@ export class ExportPrompt implements Prompt {
         this._enableOutro.addEventListener("click", () => { (this._computedSamplesLabel.firstChild as Text).textContent = this.samplesToTime(this._doc.synth.getTotalSamples(this._enableIntro.checked, this._enableOutro.checked, +this._loopDropDown.value - 1)); });
         this._enableIntro.addEventListener("click", () => { (this._computedSamplesLabel.firstChild as Text).textContent = this.samplesToTime(this._doc.synth.getTotalSamples(this._enableIntro.checked, this._enableOutro.checked, +this._loopDropDown.value - 1)); });
         this._loopDropDown.addEventListener("change", () => { (this._computedSamplesLabel.firstChild as Text).textContent = this.samplesToTime(this._doc.synth.getTotalSamples(this._enableIntro.checked, this._enableOutro.checked, +this._loopDropDown.value - 1)); });
+        const onFormatSelectChange = () => this._mp3BitrateSelectDiv.style.display = this._formatSelect.value == "mp3" ? "flex" : "none";
+        this._formatSelect.addEventListener("change", onFormatSelectChange);
+        onFormatSelectChange();
         this.container.addEventListener("keydown", this._whenKeyPressed);
 
         this._fileName.value = _doc.song.title;
@@ -406,14 +416,14 @@ export class ExportPrompt implements Prompt {
 
             const lamejs: any = (<any>window)["lamejs"];
             const channelCount: number = 2;
-            const kbps: number = 192;
+            const kbps: number = parseInt(this._mp3BitrateSelect.value);
             const sampleBlockSize: number = 1152;
-            const mp3encoder: any = new lamejs.Mp3Encoder(channelCount, this.synth.samplesPerSecond, kbps);
+            const mp3encoder: any = new lamejs.Mp3Encoder(channelCount, parseInt(this._sampleRateSelect.value), kbps);
             const mp3Data: any[] = [];
 
             const left: Int16Array = new Int16Array(this.recordedSamplesL.length);
             const right: Int16Array = new Int16Array(this.recordedSamplesR.length);
-            const range: number = (1 << 15) - 1;
+            const range: number = (1 << 15) - 1; // todo: add support for different sample sizes
             for (let i: number = 0; i < this.recordedSamplesL.length; i++) {
                 left[i] = Math.floor(Math.max(-1, Math.min(1, this.recordedSamplesL[i])) * range);
                 right[i] = Math.floor(Math.max(-1, Math.min(1, this.recordedSamplesR[i])) * range);
