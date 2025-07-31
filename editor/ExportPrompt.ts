@@ -68,6 +68,12 @@ export class ExportPrompt implements Prompt {
         option({ value: 88200 }, "Use 88200Hz sample rate."),
         option({ value: 96000 }, "Use 96000Hz sample rate."),
     );
+    private readonly _sampleSizeSelect: HTMLSelectElement = select({ style: "width: 100%;" },
+        option({ value: 1 }, "Use 8-bit audio."),
+        option({ value: 2 }, "Use 16-bit audio."),
+        option({ value: 3 }, "Use 24-bit audio."),
+        option({ value: 4 }, "Use 32-bit audio."),
+    );
     private readonly _cancelButton: HTMLButtonElement = button({ class: "cancelButton" });
     private readonly _exportButton: HTMLButtonElement = button({ class: "exportButton", style: "width:45%;" }, "Export");
     private readonly _outputProgressBar: HTMLDivElement = div({ style: `width: 0%; background: ${ColorConfig.loopAccent}; height: 100%; position: absolute; z-index: 2;` });
@@ -110,8 +116,10 @@ export class ExportPrompt implements Prompt {
                 div({ style: "display: table-cell; vertical-align: middle;" }, this._enableOutro),
             ),
         ),
+        h2("File Options"),
         div({ class: "selectContainer", style: "width: 100%;" }, this._formatSelect),
         div({ class: "selectContainer", style: "width: 100%;" }, this._sampleRateSelect),
+        div({ class: "selectContainer", style: "width: 100%;" }, this._sampleSizeSelect),
         div({ style: "text-align: left;" }, "Exporting can be slow. Reloading the page or clicking the X will cancel it. Please be patient."),
         this._outputProgressContainer,
         div({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" },
@@ -144,6 +152,7 @@ export class ExportPrompt implements Prompt {
         }
 
         this._sampleRateSelect.value = "48000";
+        this._sampleSizeSelect.value = "2";
         this._fileName.select();
         setTimeout(() => this._fileName.focus());
 
@@ -337,7 +346,7 @@ export class ExportPrompt implements Prompt {
         const sampleRate: number = this.synth.samplesPerSecond;
 
         const wavChannelCount: number = 2;
-        const bytesPerSample: number = 2;
+        const bytesPerSample: number = parseInt(this._sampleSizeSelect.value);
         const bitsPerSample: number = 8 * bytesPerSample;
         const sampleCount: number = wavChannelCount * sampleFrames;
 
@@ -366,14 +375,14 @@ export class ExportPrompt implements Prompt {
             for (let i: number = 0; i < sampleFrames; i++) {
                 let valL: number = Math.floor(Math.max(-1, Math.min(1, this.recordedSamplesL[i])) * range);
                 let valR: number = Math.floor(Math.max(-1, Math.min(1, this.recordedSamplesR[i])) * range);
-                if (bytesPerSample == 2) {
-                    data.setInt16(index, valL, true); index += 2;
-                    data.setInt16(index, valR, true); index += 2;
-                } else if (bytesPerSample == 4) {
-                    data.setInt32(index, valL, true); index += 4;
-                    data.setInt32(index, valR, true); index += 4;
-                } else {
-                    throw new Error("unsupported sample size");
+                // dynamic sample sizes!! hooray!!
+                for (let byteInx: number = 0; byteInx < bytesPerSample; byteInx++) {
+                    let byte: number = (valL & (255 << byteInx*8)) >> byteInx*8
+                    data.setUint8(index, byte); index++;
+                }
+                for (let byteInx: number = 0; byteInx < bytesPerSample; byteInx++) {
+                    let byte: number = (valR & (255 << byteInx*8)) >> byteInx*8
+                    data.setUint8(index, byte); index++;
                 }
             }
         } else {
