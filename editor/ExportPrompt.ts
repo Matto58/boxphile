@@ -60,6 +60,14 @@ export class ExportPrompt implements Prompt {
         option({ value: "json" }, "Export to .json file."),
         option({ value: "html" }, "Export to .html file."),
     );
+    private readonly _sampleRateSelect: HTMLSelectElement = select({ style: "width: 100%;" },
+        option({ value: 22050 }, "Use 22050Hz sample rate."),
+        option({ value: 24000 }, "Use 24000Hz sample rate."),
+        option({ value: 44100 }, "Use 44100Hz sample rate."),
+        option({ value: 48000 }, "Use 48000Hz sample rate."),
+        option({ value: 88200 }, "Use 88200Hz sample rate."),
+        option({ value: 96000 }, "Use 96000Hz sample rate."),
+    );
     private readonly _cancelButton: HTMLButtonElement = button({ class: "cancelButton" });
     private readonly _exportButton: HTMLButtonElement = button({ class: "exportButton", style: "width:45%;" }, "Export");
     private readonly _outputProgressBar: HTMLDivElement = div({ style: `width: 0%; background: ${ColorConfig.loopAccent}; height: 100%; position: absolute; z-index: 2;` });
@@ -103,6 +111,7 @@ export class ExportPrompt implements Prompt {
             ),
         ),
         div({ class: "selectContainer", style: "width: 100%;" }, this._formatSelect),
+        div({ class: "selectContainer", style: "width: 100%;" }, this._sampleRateSelect),
         div({ style: "text-align: left;" }, "Exporting can be slow. Reloading the page or clicking the X will cancel it. Please be patient."),
         this._outputProgressContainer,
         div({ style: "display: flex; flex-direction: row-reverse; justify-content: space-between;" },
@@ -134,6 +143,7 @@ export class ExportPrompt implements Prompt {
             this._formatSelect.value = lastExportFormat;
         }
 
+        this._sampleRateSelect.value = "48000";
         this._fileName.select();
         setTimeout(() => this._fileName.focus());
 
@@ -296,15 +306,7 @@ export class ExportPrompt implements Prompt {
         this.thenExportTo = type;
         this.currentChunk = 0;
         this.synth = new Synth(this._doc.song);
-        if (type == "wav") {
-            this.synth.samplesPerSecond = 48000; // Use professional video editing standard sample rate for .wav file export.
-        }
-        else if (type == "mp3") {
-            this.synth.samplesPerSecond = 44100; // Use consumer CD standard sample rate for .mp3 export.
-        }
-        else {
-            throw new Error("Unrecognized file export type chosen!");
-        }
+        this.synth.samplesPerSecond = parseInt(this._sampleRateSelect.value);
 
         this._outputProgressBar.style.setProperty("width", "0%");
         this._outputProgressLabel.innerText = "0%";
